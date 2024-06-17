@@ -1,0 +1,15 @@
+297256266a6cd84de102f1bea7dd4003 *DESCRIPTION
+86e19783552cdb56e2c2b9d0615c7f1b *NAMESPACE
+167545e7e7bff56948745e6d0486e632 *R/RcppExports.R
+c78c1c4ba780a33431bc046acde73555 *R/auxifns.R
+dba8a91749f817694b1c470263795b60 *R/auxifns_vs.R
+4ed08cca528975fe5892da2ba7ccdfcd *R/cal.lop.vs.R
+f5cfb146d778dc98e36d33a945a45b50 *R/extra.R
+d2b8d6d7d9c3b5951b74af32dd275063 *R/geomc.R
+2828197d14caa67e26cdd760d38cfee9 *R/geomcvs.R
+4116a5c7d00a021d37bbdd46474c261d *R/globals.R
+f115b82d75df68ef9c1e12e1ded54b0b *man/geomc.Rd
+6655097c60984e09120e18bbdb03e4af *man/geomc.vs.Rd
+c458cdc70876713f9962d05b51cfb878 *man/logp.vs.Rd
+30ffed3f2374dd2135778895baef75e3 *src/RcppExports.cpp
+bf0f6d9415425381e325512dcfe2aa91 *src/matrix_manip.cpp
