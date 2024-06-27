@@ -1,7 +1,7 @@
 Package: geommc
 Title: Geometric Markov Chain Sampling
 Type: Package
-Version: 0.0.0
+Version: 0.0.1
 Authors@R: 
     person("Vivekananda", "Roy", , "vroy@iastate.edu", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0002-2964-9503"))
@@ -20,7 +20,7 @@ LinkingTo: Rcpp
 URL: https://github.com/vroys/geommc
 License: GPL (>= 3)
 NeedsCompilation: yes
-Packaged: 2024-06-15 12:34:24 UTC; vroy
+Packaged: 2024-06-27 04:55:38 UTC; vroy
 Author: Vivekananda Roy [aut, cre] (<https://orcid.org/0000-0002-2964-9503>)
 Repository: CRAN
-Date/Publication: 2024-06-17 16:10:02 UTC
+Date/Publication: 2024-06-27 05:20:02 UTC
