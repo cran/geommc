@@ -1,7 +1,7 @@
 #' Markov chain Monte Carlo for discrete and continuous
 #' distributions using geometric MH algorithms.
 #' @rdname geomc
-#' @importFrom stats rnorm runif optim
+#' @importFrom stats rnorm dnorm runif optim
 #' @importFrom cubature divonne
 #' @description geomc produces Markov chain samples from a user-defined target, which
 #' may be either a probability density function (pdf) or a probability mass function (pmf).
@@ -53,9 +53,31 @@
 #' \item \code{var.base} is the covariance matrix of the base density \eqn{f}, needs to be written as a function of the current state \eqn{x}.
 #'  \item \code{dens.base} is the density function of the base density \eqn{f}, needs to be written as a function \eqn{(y,x)} (in this order) of the proposed state \eqn{y} and the current state \eqn{x}, although it may not depend on \eqn{x}.
 #'  \item \code{samp.base} is the function to draw from the base density \eqn{f}, needs to be written as a function of the current state \eqn{x}.
-#'  \item \code{mean.ap.tar} is the vector of means of the densities \eqn{g_i(y|x), i=1,\dots,k}. It needs to be written as a function of the current state \eqn{x}. It must have the same dimension as \eqn{k} times the length of initial.
-#'  \item \code{var.ap.tar} is the matrix of covariance matrices of the densities \eqn{g_i(y|x), i=1,\dots,k} formed by column concatenation. It needs to be written as a function of the current state \eqn{x}. It must have the same dimension as the length of initial by \eqn{k} times the length of initial.
-#'  \item \code{dens.ap.tar} is the vector of densities \eqn{g_i(y|x), i=1,\dots,k}. It needs to be written as a function \eqn{(y,x)} (in this order) of the proposed state \eqn{y} and the current state \eqn{x}, although it may not depend on \eqn{x}.
+#'  \item \code{mean.ap.tar} specifies the means of the densities \eqn{g_i(y|x), i=1,\dots,k}. 
+#'  It may be supplied either as:
+#'  \enumerate{
+#'    \item a function of the current state \eqn{x} returning a numeric vector of length 
+#'    \eqn{k \times} \code{length(initial)}, formed by concatenating the component means, or
+#'    \item a list of \eqn{k} numeric vectors, each of length \code{length(initial)}, 
+#'    specifying fixed component means.
+#'  }
+#' \item \code{var.ap.tar} specifies the covariance matrices of the densities 
+#'  \eqn{g_i(y|x), i=1,\dots,k}. It may be supplied either as:
+#'  \enumerate{
+#'    \item a function of the current state \eqn{x} returning a matrix formed by column 
+#'    concatenation of the component covariance matrices, having dimension 
+#'    \code{length(initial)} by \eqn{k \times} \code{length(initial)}, or
+#'    \item a list of \eqn{k} covariance matrices, each of dimension 
+#'    \code{length(initial)} by \code{length(initial)}. When \code{length(initial)=1}, 
+#'    each element may alternatively be supplied as a positive scalar variance.
+#'  }
+#'  \item \code{dens.ap.tar} specifies the densities \eqn{g_i(y|x), i=1,\dots,k}. It may be supplied either as:
+#'  \enumerate{
+#'    \item a function \eqn{(y,x)} returning a numeric vector of length \eqn{k}, whose 
+#'    \eqn{i}-th element is the density \eqn{g_i(y|x)}, or
+#'    \item a list of \eqn{k} functions, each taking arguments \eqn{(y,x)} and returning 
+#'    a single numeric density value.
+#'  }
 #'  \item \code{samp.ap.tar} is the function to draw from the densities \eqn{g_i(y|x), i=1,\dots,k}. It needs to be written as a function of (current state \eqn{x}, the indicator of component \eqn{kk}). It must return a vector of the length of that of the initial.
 #'  \item \code{bhat.coef} is the vector of Bhattacharyya coefficients \eqn{\langle \sqrt{f(\cdot|x)}, \sqrt{g_i(\cdot|x)} \rangle, i=1,\dots,k}. It needs to be written as a function of the current state \eqn{x}.
 #' When \code{gaus= TRUE}, the \code{bhat.coef} argument is ignored and the built-in function is used.
@@ -158,8 +180,8 @@
 #' return(log(0.5*exp(geommc:::ldens_mvnorm(x, mean1,Sigma1))+
 #' 0.5*exp(geommc:::ldens_mvnorm(x,mean2,Sigma2))))}
 #' result <- geomc(logp=list(log.target=log_target_mvnorm_mix, mean.base = function(x) x, 
-#' var.base= function(x) 2*diag(2), mean.ap.tar=function(x) c(0,0,10,10),
-#' var.ap.tar=function(x) cbind(diag(2),2*diag(2))),initial= c(5, 5),n.iter=500, mean1=c(0, 0), 
+#' var.base= function(x) 2*diag(2), mean.ap.tar=list(c(0,0),c(10,10)),
+#' var.ap.tar=list(diag(2),2*diag(2))),initial= c(5, 5),n.iter=500, mean1=c(0, 0), 
 #' Sigma1=diag(2), mean2=c(10, 10), Sigma2=2*diag(2))
 #' colMeans(result$samples)
 #' #While the geomc with random walk base successfully moves back and forth between the two modes,
@@ -178,6 +200,24 @@
 
 geomc=function(logp,initial,n.iter,eps=0.5,ind=FALSE,gaus=TRUE,imp=list(enabled=FALSE,n.samp=100,samp.base=TRUE),a=1,show.progress=TRUE,...){
   if (missing(logp)) stop("logp must be provided")
+  
+  if (missing(initial)) {
+    stop("The 'initial' argument must be provided.")
+  }
+  
+  if (!is.numeric(initial)) {
+    stop("The 'initial' argument must be a numeric vector.")
+  }
+  
+  if (length(initial) < 1) {
+    stop("The 'initial' vector must have length at least 1.")
+  }
+  
+  if (any(!is.finite(initial))) {
+    stop("All elements of 'initial' must be finite (no NA, NaN, or Inf).")
+  }
+  
+  dd=length(initial)
   
   if (is.function(logp)) {
     logtarget.user <- logp
@@ -207,17 +247,108 @@ geomc=function(logp,initial,n.iter,eps=0.5,ind=FALSE,gaus=TRUE,imp=list(enabled=
     bhat.coef <- get_opt(logp, "bhat.coef")
     
     optional_funcs <- list(
-      mean.base = mean.base, var.base = var.base, 
-      dens.base = dens.base, samp.base = samp.base,
-      mean.ap.tar = mean.ap.tar, var.ap.tar = var.ap.tar,
-      dens.ap.tar = dens.ap.tar, samp.ap.tar = samp.ap.tar,
+      mean.base = mean.base,
+      var.base = var.base,
+      dens.base = dens.base,
+      samp.base = samp.base,
+      samp.ap.tar = samp.ap.tar,
       bhat.coef = bhat.coef
     )
     
-    for (fname in names(optional_funcs)) {
-      if (!is.null(optional_funcs[[fname]]) && !is.function(optional_funcs[[fname]])) {
-        stop(sprintf("logp$%s must be a function if provided", fname))
+    for (nm in names(optional_funcs)) {
+      obj <- optional_funcs[[nm]]
+      if (!is.null(obj) && !is.function(obj)) {
+        stop(sprintf("logp$%s must be a function if provided", nm))
       }
+    }
+    
+    if (!is.null(mean.ap.tar) && !is.function(mean.ap.tar) && !is.list(mean.ap.tar)) {
+      stop("logp$mean.ap.tar must be either a function or a list of numeric vectors")
+    }
+    if (!is.null(var.ap.tar) && !is.function(var.ap.tar) && !is.list(var.ap.tar)) {
+      stop("logp$var.ap.tar must be either a function or a list of covariance matrices")
+    }
+    if (!is.null(dens.ap.tar) && !is.function(dens.ap.tar) && !is.list(dens.ap.tar)) {
+      stop("logp$dens.ap.tar must be either a function or a list of functions")
+    }
+    
+    if (is.list(mean.ap.tar)) {
+      mean.ap.tar.list <- mean.ap.tar
+      if (length(mean.ap.tar.list) < 1L) {
+        stop("mean.ap.tar list must have at least one element")
+      }
+      if (!all(vapply(mean.ap.tar.list, is.numeric, logical(1L)))) {
+        stop("Every element of mean.ap.tar must be numeric")
+      }
+      if (!all(vapply(mean.ap.tar.list, function(z) length(z) == dd && all(is.finite(z)), logical(1L)))) {
+        stop(sprintf("Each element of mean.ap.tar must be a finite numeric vector of length %d", dd))
+      }
+      mean.ap.tar <- function(x) unlist(mean.ap.tar.list, use.names = FALSE)
+    }
+    
+    if (is.list(var.ap.tar)) {
+      var.ap.tar.list <- var.ap.tar
+      if (length(var.ap.tar.list) < 1L) {
+        stop("var.ap.tar list must have at least one element")
+      }
+      for (ii in seq_along(var.ap.tar.list)) {
+        V <- var.ap.tar.list[[ii]]
+        if (dd == 1L) {
+          if (is.matrix(V)) {
+            if (!all(dim(V) == c(1L, 1L))) {
+              stop(sprintf(
+                "var.ap.tar[[%d]] must be a positive scalar (or 1 x 1 matrix) when length(initial) = 1",
+                ii
+              ))
+            }
+            V <- V[1, 1]
+          }
+          if (!is.numeric(V) || length(V) != 1L || !is.finite(V) || V <= 0) {
+            stop(sprintf("var.ap.tar[[%d]] must be a positive scalar when length(initial) = 1", ii))
+          }
+          var.ap.tar.list[[ii]] <- matrix(as.numeric(V), 1L, 1L)
+        } else {
+          if (!is.matrix(V) || any(dim(V) != c(dd, dd))) {
+            stop(sprintf("var.ap.tar[[%d]] must be a %d x %d matrix", ii, dd, dd))
+          }
+          if (!isSymmetric(V)) {
+            stop(sprintf("var.ap.tar[[%d]] must be symmetric", ii))
+          }
+          if (!is_pd(V)) {
+            stop(sprintf("var.ap.tar[[%d]] must be positive definite", ii))
+          }
+        }
+      }
+      var.ap.tar <- function(x) do.call(cbind, lapply(var.ap.tar.list, as.matrix))
+    }
+    
+    if (is.list(dens.ap.tar)) {
+      dens.ap.tar.list <- dens.ap.tar
+      if (length(dens.ap.tar.list) < 1L) {
+        stop("dens.ap.tar list must have at least one element")
+      }
+      if (!all(vapply(dens.ap.tar.list, is.function, logical(1L)))) {
+        stop("Every element of dens.ap.tar must be a function")
+      }
+      dens.ap.tar <- function(y, x) {
+        vapply(dens.ap.tar.list, function(ff) {
+          val <- ff(y, x)
+          if (!is.numeric(val) || length(val) != 1L || !is.finite(val)) {
+            stop("Each dens.ap.tar list element must return a single finite numeric value")
+          }
+          val
+        }, numeric(1L))
+      }
+    }
+    
+    k.mean <- if (exists("mean.ap.tar.list")) length(mean.ap.tar.list) else NA_integer_
+    k.var  <- if (exists("var.ap.tar.list"))  length(var.ap.tar.list)  else NA_integer_
+    k.dens <- if (exists("dens.ap.tar.list")) length(dens.ap.tar.list) else NA_integer_
+    
+    k_list <- c(k.mean, k.var, k.dens)
+    k_list <- k_list[!is.na(k_list)]
+    if (length(k_list) > 1L && length(unique(k_list)) != 1L) {
+      stop("If mean.ap.tar, var.ap.tar, or dens.ap.tar are supplied as lists, their lengths must match.")
     }
     } else {
     stop("logp must be either a function or a list.")
@@ -225,22 +356,7 @@ geomc=function(logp,initial,n.iter,eps=0.5,ind=FALSE,gaus=TRUE,imp=list(enabled=
 
   log.target <- function(x) logtarget.user(x, ...)
 
-    if (missing(initial)) {
-      stop("The 'initial' argument must be provided.")
-    }
 
-  if (!is.numeric(initial)) {
-    stop("The 'initial' argument must be a numeric vector.")
-  }
-
-  if (length(initial) < 1) {
-    stop("The 'initial' vector must have length at least 1.")
-  }
-  
-  if (any(!is.finite(initial))) {
-    stop("All elements of 'initial' must be finite (no NA, NaN, or Inf).")
-  }
-  
   test_eval <- try(log.target(initial), silent = TRUE)
   
   if (inherits(test_eval, "try-error")) {
@@ -299,7 +415,6 @@ geomc=function(logp,initial,n.iter,eps=0.5,ind=FALSE,gaus=TRUE,imp=list(enabled=
   if (!is.logical(show.progress) || length(show.progress) != 1 || is.na(show.progress))
     stop("show.progress must be a single logical value (TRUE or FALSE)")
   
-  dd=length(initial)
 
   if(!is.null(mean.base)){
     mb <- try(mean.base(initial), silent = TRUE)
@@ -517,16 +632,46 @@ geomc=function(logp,initial,n.iter,eps=0.5,ind=FALSE,gaus=TRUE,imp=list(enabled=
       samp.base=function(x) x+s.base*rnorm(dd)
       mean.base=function(x) x
       var.base=function(x) v.base*diag(dd)
-      dens.ap.tar=function(y,x) exp(ldens_mvnormchol(y,m.ap.tar,chol.ap.tar))
-      samp.ap.tar=function(x,kk=1) m.ap.tar+ crossprod(chol.ap.tar,rnorm(dd))
-      mean.ap.tar=function(x) m.ap.tar
-      var.ap.tar=function(x)  v.ap.tar
+      if (dd == 1L) {
+        v.ap.scalar <- if (is.matrix(v.ap.tar)) v.ap.tar[1, 1] else as.numeric(v.ap.tar)
+        chol.ap.tar <- sqrt(v.ap.scalar)
+        dens.ap.tar <- function(y, x) dnorm(y, mean = m.ap.tar, sd = chol.ap.tar)
+        
+        samp.ap.tar <- function(x, kk = 1L) m.ap.tar + chol.ap.tar * rnorm(1)
+        
+        mean.ap.tar <- function(x) as.numeric(m.ap.tar)
+        var.ap.tar  <- function(x) matrix(v.ap.scalar, 1L, 1L)
+      } else {
+        chol.ap.tar <- chol(v.ap.tar)
+        
+        dens.ap.tar <- function(y, x) exp(ldens_mvnormchol(y, m.ap.tar, chol.ap.tar))
+        
+        samp.ap.tar <- function(x, kk = 1L) m.ap.tar + crossprod(chol.ap.tar, rnorm(dd))
+        
+        mean.ap.tar <- function(x) m.ap.tar
+        var.ap.tar  <- function(x) v.ap.tar
+      }
       diag.v.ap=fgfns$diag.v.ap
     }else if(model.case == "only_ap_tar_missing"){
-      dens.ap.tar=function(y,x) exp(ldens_mvnormchol(y,m.ap.tar, chol.ap.tar))
-      samp.ap.tar=function(x,kk=1) m.ap.tar+ crossprod(chol.ap.tar,rnorm(dd))
-      mean.ap.tar=function(x) m.ap.tar
-      var.ap.tar=function(x)  v.ap.tar
+      if (dd == 1L) {
+        v.ap.scalar <- if (is.matrix(v.ap.tar)) v.ap.tar[1, 1] else as.numeric(v.ap.tar)
+        chol.ap.tar<- sqrt(v.ap.scalar)
+        dens.ap.tar <- function(y, x) dnorm(y, mean = m.ap.tar, sd = chol.ap.tar)
+        
+        samp.ap.tar <- function(x, kk = 1L) m.ap.tar + chol.ap.tar * rnorm(1)
+        
+        mean.ap.tar <- function(x) as.numeric(m.ap.tar)
+        var.ap.tar  <- function(x) matrix(v.ap.scalar, 1L, 1L)
+      } else {
+        chol.ap.tar <- chol(v.ap.tar)
+        
+        dens.ap.tar <- function(y, x) exp(ldens_mvnormchol(y, m.ap.tar, chol.ap.tar))
+        
+        samp.ap.tar <- function(x, kk = 1L) m.ap.tar + drop(crossprod(chol.ap.tar, rnorm(dd)))
+        
+        mean.ap.tar <- function(x) m.ap.tar
+        var.ap.tar  <- function(x) v.ap.tar
+      }
     }
   }
 
@@ -562,7 +707,7 @@ geomc=function(logp,initial,n.iter,eps=0.5,ind=FALSE,gaus=TRUE,imp=list(enabled=
         ))
       }
     }
-    samp.ap.tar <- function(x, kk = 1) {
+    samp.ap.tar <- function(x, kk = 1L) {
       mu  <- mean.ap.tar(x)
       if (dd == 1) {
         Sig <- matrix(var.ap.tar(x),nrow=dd)

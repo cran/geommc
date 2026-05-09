@@ -7,8 +7,7 @@ knitr::opts_chunk$set(
 )
 
 ## ----setup--------------------------------------------------------------------
-# Install from GitHub (if not already installed)
-# devtools::install_github("vroys/geommc")
+# Install using install.packages('geommc')
 library(geommc)
 
 ## ----mvnorm-example-----------------------------------------------------------
@@ -526,8 +525,8 @@ result_biv <- geomc(
     log.target = log_target_mvnorm_mix,
     mean.base = function(x) x,
     var.base = function(x) 2 * diag(2),
-    mean.ap.tar = function(x) c(0, 0, 10, 10),  # Means of both densities
-    var.ap.tar = function(x) cbind(diag(2), 2 * diag(2))  # Covariances specified by cbind
+    mean.ap.tar = list(c(0, 0), c(10, 10)),
+    var.ap.tar = list(diag(2), 2 * diag(2))
   ),
   initial = c(5, 5),  # Start between the modes
   n.iter = 1000,
@@ -584,8 +583,8 @@ set.seed(123)
 result_biv_diffuse <- geomc(
   logp = list(
     log.target = log_target_mvnorm_mix,
-    mean.ap.tar = function(x) c(0, 0),
-    var.ap.tar = function(x) 400*diag(2)
+    mean.ap.tar = list(c(0, 0)),
+    var.ap.tar = list(400*diag(2))
   ),
   initial = c(5, 5),  # Start between the modes
   n.iter = 1000,

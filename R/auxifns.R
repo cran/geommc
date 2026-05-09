@@ -318,7 +318,39 @@ genfvargmeanvar <- function(log.target, initial, dd) {
   var.base <- sig.rw
   sd.base <- sqrt(sig.rw)
   
-  
+  if (dd == 1L) {
+    start_point <- if (!is.null(out$last_state)) out$last_state else initial
+    
+    opt <- try(
+      optim(start_point, fn = log.target, method = "L-BFGS-B",
+            control = list(fnscale = -1, maxit = 100),
+            hessian = TRUE),
+      silent = TRUE
+    )
+    
+    if (!inherits(opt, "try-error") && opt$convergence == 0) {
+      mean.ap.tar <- as.numeric(opt$par)
+      H <- opt$hessian
+      h <- if (is.matrix(H)) H[1, 1] else as.numeric(H)
+      
+      if (is.finite(h) && h < 0) {
+        var.ap.tar <- matrix(-1 / h, 1L, 1L)
+      } else {
+        var.ap.tar <- matrix(400, 1L, 1L)
+      }
+    } else {
+      mean.ap.tar <- as.numeric(start_point)
+      var.ap.tar <- matrix(400, 1L, 1L)
+    }
+    
+    return(list(
+      sd.base = sd.base,
+      var.base = var.base,
+      mean.ap.tar = mean.ap.tar,
+      var.ap.tar = var.ap.tar,
+      diag.v.ap = TRUE
+    ))
+  }
   diag.v.ap <- FALSE
   
   start_point <- if (!is.null(out$last_state)) out$last_state else initial
@@ -392,11 +424,12 @@ genfvargmeanvar <- function(log.target, initial, dd) {
       diag.v.ap <<- TRUE
       var.ap.tar <- diag(rep(400, dd))
     }
-      
-      if (!diag.v.ap && all(var.ap.tar == diag(diag(var.ap.tar)))) {
+    if (!diag.v.ap) {
+      Vdiag <- diag(diag(var.ap.tar), nrow = dd, ncol = dd)
+      if (all(var.ap.tar == Vdiag)) {
         diag.v.ap <- TRUE
       }
-    
+    }
       return(list(
         sd.base = sd.base,
         var.base = var.base,

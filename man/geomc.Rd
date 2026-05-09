@@ -34,9 +34,31 @@ If the target density requires additional parameters, the user-supplied
 \item \code{var.base} is the covariance matrix of the base density \eqn{f}, needs to be written as a function of the current state \eqn{x}.
 \item \code{dens.base} is the density function of the base density \eqn{f}, needs to be written as a function \eqn{(y,x)} (in this order) of the proposed state \eqn{y} and the current state \eqn{x}, although it may not depend on \eqn{x}.
 \item \code{samp.base} is the function to draw from the base density \eqn{f}, needs to be written as a function of the current state \eqn{x}.
-\item \code{mean.ap.tar} is the vector of means of the densities \eqn{g_i(y|x), i=1,\dots,k}. It needs to be written as a function of the current state \eqn{x}. It must have the same dimension as \eqn{k} times the length of initial.
-\item \code{var.ap.tar} is the matrix of covariance matrices of the densities \eqn{g_i(y|x), i=1,\dots,k} formed by column concatenation. It needs to be written as a function of the current state \eqn{x}. It must have the same dimension as the length of initial by \eqn{k} times the length of initial.
-\item \code{dens.ap.tar} is the vector of densities \eqn{g_i(y|x), i=1,\dots,k}. It needs to be written as a function \eqn{(y,x)} (in this order) of the proposed state \eqn{y} and the current state \eqn{x}, although it may not depend on \eqn{x}.
+\item \code{mean.ap.tar} specifies the means of the densities \eqn{g_i(y|x), i=1,\dots,k}.
+It may be supplied either as:
+\enumerate{
+\item a function of the current state \eqn{x} returning a numeric vector of length
+\eqn{k \times} \code{length(initial)}, formed by concatenating the component means, or
+\item a list of \eqn{k} numeric vectors, each of length \code{length(initial)},
+specifying fixed component means.
+}
+\item \code{var.ap.tar} specifies the covariance matrices of the densities
+\eqn{g_i(y|x), i=1,\dots,k}. It may be supplied either as:
+\enumerate{
+\item a function of the current state \eqn{x} returning a matrix formed by column
+concatenation of the component covariance matrices, having dimension
+\code{length(initial)} by \eqn{k \times} \code{length(initial)}, or
+\item a list of \eqn{k} covariance matrices, each of dimension
+\code{length(initial)} by \code{length(initial)}. When \code{length(initial)=1},
+each element may alternatively be supplied as a positive scalar variance.
+}
+\item \code{dens.ap.tar} specifies the densities \eqn{g_i(y|x), i=1,\dots,k}. It may be supplied either as:
+\enumerate{
+\item a function \eqn{(y,x)} returning a numeric vector of length \eqn{k}, whose
+\eqn{i}-th element is the density \eqn{g_i(y|x)}, or
+\item a list of \eqn{k} functions, each taking arguments \eqn{(y,x)} and returning
+a single numeric density value.
+}
 \item \code{samp.ap.tar} is the function to draw from the densities \eqn{g_i(y|x), i=1,\dots,k}. It needs to be written as a function of (current state \eqn{x}, the indicator of component \eqn{kk}). It must return a vector of the length of that of the initial.
 \item \code{bhat.coef} is the vector of Bhattacharyya coefficients \eqn{\langle \sqrt{f(\cdot|x)}, \sqrt{g_i(\cdot|x)} \rangle, i=1,\dots,k}. It needs to be written as a function of the current state \eqn{x}.
 When \code{gaus= TRUE}, the \code{bhat.coef} argument is ignored and the built-in function is used.
@@ -187,8 +209,8 @@ log_target_mvnorm_mix <- function(x, mean1, Sigma1, mean2, Sigma2) {
 return(log(0.5*exp(geommc:::ldens_mvnorm(x, mean1,Sigma1))+
 0.5*exp(geommc:::ldens_mvnorm(x,mean2,Sigma2))))}
 result <- geomc(logp=list(log.target=log_target_mvnorm_mix, mean.base = function(x) x, 
-var.base= function(x) 2*diag(2), mean.ap.tar=function(x) c(0,0,10,10),
-var.ap.tar=function(x) cbind(diag(2),2*diag(2))),initial= c(5, 5),n.iter=500, mean1=c(0, 0), 
+var.base= function(x) 2*diag(2), mean.ap.tar=list(c(0,0),c(10,10)),
+var.ap.tar=list(diag(2),2*diag(2))),initial= c(5, 5),n.iter=500, mean1=c(0, 0), 
 Sigma1=diag(2), mean2=c(10, 10), Sigma2=2*diag(2))
 colMeans(result$samples)
 #While the geomc with random walk base successfully moves back and forth between the two modes,

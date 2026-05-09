@@ -18,5 +18,10 @@ Useful links:
 \author{
 \strong{Maintainer}: Vivekananda Roy \email{vroy@iastate.edu} (\href{https://orcid.org/0000-0002-2964-9503}{ORCID})
 
+Authors:
+\itemize{
+  \item Vivekananda Roy \email{vroy@iastate.edu} (\href{https://orcid.org/0000-0002-2964-9503}{ORCID})
+}
+
 }
 \keyword{internal}
